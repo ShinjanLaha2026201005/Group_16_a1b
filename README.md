@@ -42,7 +42,8 @@ psql -U postgres -d stayspot_db -f sql/05_materialized_views.sql
 # Python deps + seed
 pip install -r requirements.txt
 # Edit data_generation/postgres_seeder.py DB_CONFIG if needed, then:
-python data_generation/postgres_seeder.py
+python3 data_generation/postgres_seeder.py
+python3.13 data_generation/postgres_seeder.py
 
 # Refresh MV after seed
 psql -U postgres -d stayspot_db -c "SELECT refresh_property_analytics();"
