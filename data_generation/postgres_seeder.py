@@ -1,8 +1,7 @@
 # data_generation/postgres_seeder.py
 
-import os
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import psycopg2
 from psycopg2.extras import execute_batch
 from faker import Faker
@@ -26,21 +25,26 @@ def seed_database():
     cur = conn.cursor()
     print("Connected to database. Starting seeding process...")
 
-    # 1. Seed Guests (10,000 guests)
+    # 1. Seed Guests (10,000 guests) — unique name/phone; email optional (nullable)
     print("Seeding 10,000 guests...")
-    guests_data = [
-        (fake.name(), round(random.uniform(500.0, 10000.0), 2))
-        for _ in range(10000)
-    ]
+    guests_data = []
+    for i in range(10000):
+        # ~15% of guests omit email (NULL allowed by schema)
+        email = None if i % 7 == 0 else f"guest{i + 1}@stayspot.example"
+        guests_data.append((
+            f"{fake.name()} #{i + 1}",
+            email,
+            f"+91{7000000000 + i}",
+            round(random.uniform(500.0, 10000.0), 2)
+        ))
     execute_batch(
         cur,
-        "INSERT INTO guests (name, wallet_balance) VALUES (%s, %s);",
+        "INSERT INTO guests (name, email, phone_number, wallet_balance) VALUES (%s, %s, %s, %s);",
         guests_data,
         page_size=2000
     )
     conn.commit()
 
-    # Fetch guest IDs
     cur.execute("SELECT id FROM guests;")
     guest_ids = [row[0] for row in cur.fetchall()]
 
@@ -63,27 +67,29 @@ def seed_database():
     )
     conn.commit()
 
-    # Fetch property IDs
-    cur.execute("SELECT id FROM properties;")
-    property_ids = [row[0] for row in cur.fetchall()]
+    cur.execute("SELECT id, base_price FROM properties;")
+    properties = cur.fetchall()
 
     # 3. Seed Bookings (50,000 rows requirement)
     print("Seeding 50,000 bookings...")
     statuses = ['CONFIRMED', 'CHECKED_IN', 'COMPLETED']
     status_weights = [0.2, 0.1, 0.7]  # Keep CHECKED_IN low to avoid partial unique index collisions
 
-    # To honor partial unique index idx_active_stay, each guest gets at most one CHECKED_IN booking
     checked_in_guests = set()
     bookings_data = []
-    
+
     start_date = datetime.now() - timedelta(days=90)
+    today = date.today()
 
     for _ in range(50000):
         g_id = random.choice(guest_ids)
-        p_id = random.choice(property_ids)
-        cost = round(random.uniform(100.0, 3000.0), 2)
+        p_id, base_price = random.choice(properties)
+        nights = random.randint(2, 3)
+        check_in = today - timedelta(days=random.randint(0, 80))
+        check_out = check_in + timedelta(days=nights)
+        total_cost = round(float(base_price) * nights, 2)
         created_at = start_date + timedelta(seconds=random.randint(0, 90 * 86400))
-        
+
         status = random.choices(statuses, weights=status_weights)[0]
         if status == 'CHECKED_IN':
             if g_id in checked_in_guests:
@@ -91,11 +97,14 @@ def seed_database():
             else:
                 checked_in_guests.add(g_id)
 
-        bookings_data.append((g_id, p_id, cost, status, created_at))
+        bookings_data.append((g_id, p_id, check_in, check_out, total_cost, status, created_at))
 
     execute_batch(
         cur,
-        "INSERT INTO bookings (guest_id, property_id, total_cost, status, created_at) VALUES (%s, %s, %s, %s, %s);",
+        """
+        INSERT INTO bookings (guest_id, property_id, check_in, check_out, total_cost, status, created_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s);
+        """,
         bookings_data,
         page_size=5000
     )
