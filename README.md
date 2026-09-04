@@ -71,8 +71,8 @@ Raw plans: [`performance/postgres_explain_analyzes.txt`](performance/postgres_ex
 |-------|------|
 | guests | ~10,000 |
 | properties | ~2,000 |
-| bookings | **50,003** |
-| wallet_audit_logs | **100,003** |
+| bookings | **50,000** |
+| wallet_audit_logs | **100,000** |
 
 ### Workflow 2 (`sql/06_window_analytics.sql`)
 
