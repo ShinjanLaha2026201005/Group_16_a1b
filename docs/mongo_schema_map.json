@@ -1,0 +1,159 @@
+{
+  "database": "stayspot",
+  "project": "CS6.302 Assignment 1 - Project 3: StaySpot (Vacation Rental & Experiences)",
+  "notes": "Document structures and MongoDB $jsonSchema validation rules for the three unstructured collections owned by the Mongo/unstructured-data workstream.",
+  "collections": {
+    "PropertyAmenities": {
+      "purpose": "Flexible catalog documents with nested arrays for house rules and accessibility features, plus a free-form amenity map.",
+      "example_document": {
+        "_id": "ObjectId('...')",
+        "property_id": 1042,
+        "house_rules": [
+          "No smoking indoors",
+          "Check-in after 2 PM",
+          "Check-out before 11 AM"
+        ],
+        "accessibility_features": [
+          "Step-free entrance",
+          "Elevator access"
+        ],
+        "dynamic_amenities": {
+          "wifi": true,
+          "pool": { "heated": true, "hours": "06:00-22:00" },
+          "free_parking": true
+        },
+        "created_at": "ISODate('2025-11-02T00:00:00Z')",
+        "updated_at": "ISODate('2026-08-01T00:00:00Z')"
+      },
+      "validator": {
+        "$jsonSchema": {
+          "bsonType": "object",
+          "title": "PropertyAmenities Validator",
+          "required": ["property_id", "house_rules", "accessibility_features", "created_at"],
+          "properties": {
+            "_id": { "bsonType": "objectId" },
+            "property_id": {
+              "bsonType": ["string", "int", "long"],
+              "description": "References properties.id in PostgreSQL. Required."
+            },
+            "house_rules": {
+              "bsonType": "array",
+              "items": { "bsonType": "string" },
+              "description": "Free-text house rule strings."
+            },
+            "accessibility_features": {
+              "bsonType": "array",
+              "items": { "bsonType": "string" },
+              "description": "Accessibility feature tags."
+            },
+            "dynamic_amenities": {
+              "bsonType": "object",
+              "description": "Flexible, unvalidated key/value map of amenity name to details (bool, string, or nested object). Intentionally schemaless to allow per-property variability."
+            },
+            "created_at": { "bsonType": "date" },
+            "updated_at": { "bsonType": "date" }
+          }
+        }
+      }
+    },
+    "PropertyReviews": {
+      "purpose": "Structured reviews with ratings, location/experience tags, and timestamps.",
+      "example_document": {
+        "_id": "ObjectId('...')",
+        "property_id": 1042,
+        "guest_id": "guest_18832",
+        "rating": 5,
+        "tags": ["clean", "great_location", "responsive_host"],
+        "comment": "Beautiful place, exactly as described, host was very responsive.",
+        "created_at": "ISODate('2026-07-14T09:12:00Z')"
+      },
+      "validator": {
+        "$jsonSchema": {
+          "bsonType": "object",
+          "title": "PropertyReviews Validator",
+          "required": ["property_id", "guest_id", "rating", "created_at"],
+          "properties": {
+            "_id": { "bsonType": "objectId" },
+            "property_id": {
+              "bsonType": ["string", "int", "long"],
+              "description": "References properties.id in PostgreSQL. Required."
+            },
+            "guest_id": {
+              "bsonType": ["string", "int", "long"],
+              "description": "References guests.id in PostgreSQL. Required."
+            },
+            "rating": {
+              "bsonType": "int",
+              "minimum": 1,
+              "maximum": 5,
+              "description": "Integer star rating, 1 to 5 inclusive."
+            },
+            "tags": {
+              "bsonType": "array",
+              "items": { "bsonType": "string" },
+              "description": "Free-form sentiment/location tags, e.g. 'clean', 'noisy'."
+            },
+            "comment": {
+              "bsonType": "string",
+              "maxLength": 2000,
+              "description": "Free-text review body."
+            },
+            "created_at": { "bsonType": "date" }
+          }
+        }
+      }
+    },
+    "SearchSessions": {
+      "purpose": "Geospatial logs of where users drop pins to search for homes. Feeds Workflow 3 (trending hotspot detection) and expires automatically after 2 hours via TTL index.",
+      "example_document": {
+        "_id": "ObjectId('...')",
+        "session_id": "sess_000004821_a1b2c3d4",
+        "user_id": "user_2931",
+        "location": { "type": "Point", "coordinates": [77.5946, 12.9716] },
+        "search_radius_km": 5.0,
+        "created_at": "ISODate('2026-08-30T10:15:00Z')"
+      },
+      "validator": {
+        "$jsonSchema": {
+          "bsonType": "object",
+          "title": "SearchSessions Validator",
+          "required": ["session_id", "user_id", "location", "created_at"],
+          "properties": {
+            "_id": { "bsonType": "objectId" },
+            "session_id": {
+              "bsonType": "string",
+              "description": "Unique client-generated session identifier."
+            },
+            "user_id": {
+              "bsonType": ["string", "int", "long"],
+              "description": "References users.id in PostgreSQL."
+            },
+            "location": {
+              "bsonType": "object",
+              "required": ["type", "coordinates"],
+              "description": "GeoJSON Point in [longitude, latitude] order, required for the 2dsphere index.",
+              "properties": {
+                "type": { "enum": ["Point"] },
+                "coordinates": {
+                  "bsonType": "array",
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "items": { "bsonType": ["double", "int"] }
+                }
+              }
+            },
+            "search_radius_km": {
+              "bsonType": ["double", "int"],
+              "minimum": 0,
+              "description": "Radius the user searched within, in kilometers."
+            },
+            "created_at": {
+              "bsonType": "date",
+              "description": "Used by the TTL index (expireAfterSeconds: 7200) to auto-expire pings after 2 hours."
+            }
+          }
+        }
+      }
+    }
+  }
+}
