@@ -1,5 +1,6 @@
 # data_generation/postgres_seeder.py
 
+import os
 import random
 from datetime import datetime, timedelta, date
 import psycopg2
@@ -7,12 +8,14 @@ from psycopg2.extras import execute_batch
 from faker import Faker
 
 # Database connection settings
+# [A2 fix] Read connection settings from environment variables instead of a
+# hardcoded empty password, so the same script runs on every team member's machine.
 DB_CONFIG = {
-    "dbname": "stayspot_db",
-    "user": "postgres",
-    "password": "",  # Adjust password if needed
-    "host": "localhost",
-    "port": "5432"
+    "dbname": os.getenv("PGDATABASE", "stayspot_db"),
+    "user": os.getenv("PGUSER", "postgres"),
+    "password": os.getenv("PGPASSWORD", ""),
+    "host": os.getenv("PGHOST", "localhost"),
+    "port": os.getenv("PGPORT", "5432"),
 }
 
 fake = Faker()
@@ -24,6 +27,10 @@ def seed_database():
     conn = get_connection()
     cur = conn.cursor()
     print("Connected to database. Starting seeding process...")
+
+    # [A2 fix] Make the seeder re-runnable: clear old rows and reset the SERIAL ids.
+    cur.execute("TRUNCATE wallet_audit_logs, bookings, properties, guests RESTART IDENTITY CASCADE;")
+    conn.commit()
 
     # 1. Seed Guests (10,000 guests) — unique name/phone; email optional (nullable)
     print("Seeding 10,000 guests...")
@@ -111,17 +118,37 @@ def seed_database():
     conn.commit()
 
     # 4. Seed Wallet Audit Logs (100,000 rows requirement)
+    # [A2 fix] The original seeder generated random balance_after values that had
+    # nothing to do with the guest's real wallet. Here every guest gets a
+    # chronological history that ENDS at their current wallet_balance, so the
+    # running balance shown in the Audit Trail screen is consistent.
     print("Seeding 100,000 wallet audit logs...")
-    actions = ['DEBIT', 'CREDIT']
     audit_data = []
 
-    for _ in range(100000):
-        g_id = random.choice(guest_ids)
-        amount = round(random.uniform(10.0, 500.0), 2)
-        action = random.choice(actions)
-        balance_after = round(random.uniform(100.0, 15000.0), 2)
-        ts = start_date + timedelta(seconds=random.randint(0, 90 * 86400))
-        audit_data.append((g_id, amount, action, balance_after, ts))
+    cur.execute("SELECT id, wallet_balance FROM guests ORDER BY id;")
+    guest_balances = cur.fetchall()
+    per_guest = 100000 // len(guest_balances)
+
+    for g_id, current_balance in guest_balances:
+        balance_after = float(current_balance)
+        # timestamps ascending; we walk BACKWARDS from the newest entry
+        stamps = sorted(
+            start_date + timedelta(seconds=random.randint(0, 90 * 86400))
+            for _ in range(per_guest)
+        )
+        rows = []
+        for ts in reversed(stamps):
+            amount = round(random.uniform(10.0, 500.0), 2)
+            # a CREDIT means the balance before was lower; only allowed if it stays >= 0
+            if balance_after - amount >= 0 and random.random() < 0.5:
+                action = 'CREDIT'
+                balance_before = balance_after - amount
+            else:
+                action = 'DEBIT'
+                balance_before = balance_after + amount
+            rows.append((g_id, amount, action, round(balance_after, 2), ts))
+            balance_after = round(balance_before, 2)
+        audit_data.extend(reversed(rows))
 
     execute_batch(
         cur,

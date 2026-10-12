@@ -169,7 +169,9 @@ def main():
     parser = argparse.ArgumentParser(description="Seed StaySpot MongoDB collections with mock data.")
     parser.add_argument("--uri", default="mongodb://localhost:27017", help="MongoDB connection URI")
     parser.add_argument("--db", default="stayspot", help="Target database name")
-    parser.add_argument("--properties", type=int, default=5_000, help="Number of properties to generate amenities for")
+    # [A2 fix] was 5_000, but PostgreSQL only has 2,000 properties, so ids 2001-5000
+    # pointed at properties that do not exist. Keep this equal to the Postgres count.
+    parser.add_argument("--properties", type=int, default=2_000, help="Number of properties to generate amenities for (must match PostgreSQL)")
     parser.add_argument("--reviews", type=int, default=12_000, help="Number of PropertyReviews documents (>= 10,000 required)")
     parser.add_argument("--sessions", type=int, default=550_000, help="Number of SearchSessions documents (>= 500,000 required)")
     parser.add_argument("--drop-existing", action="store_true", help="Delete existing documents in target collections before seeding")
