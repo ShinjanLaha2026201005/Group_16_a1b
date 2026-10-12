@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StaySpot · Book a stay</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main>
+  <h1>Book a stay</h1>
+  <p class="subtitle">Calls the stored procedure <code>sp_execute_booking</code>: it checks the wallet, debits it and creates the booking in one transaction.</p>
+
+  <div class="grid grid-sidebar">
+    <section class="card">
+      <h2>New booking</h2>
+      <form id="book-form">
+        <div class="form-grid">
+          <label>Property id<input id="property" type="number" min="1" required placeholder="e.g. 98"></label>
+          <label>Check-in<input id="check-in" type="date" required></label>
+          <label>Check-out<input id="check-out" type="date" required></label>
+        </div>
+        <div id="quote" class="mt muted small">Enter a property and dates to see the price.</div>
+        <div class="row mt">
+          <button class="btn" id="submit" type="submit">Book now</button>
+          <a href="index.html" class="small">Find a property id in Browse →</a>
+        </div>
+      </form>
+      <div id="result"></div>
+    </section>
+
+    <aside class="card">
+      <h2>Wallet</h2>
+      <div id="wallet"></div>
+      <form id="topup-form" class="row mt">
+        <label style="flex:1">Top up amount<input id="topup" type="number" min="1" step="0.01" value="1000"></label>
+        <button class="btn btn-secondary" type="submit">Add money</button>
+      </form>
+      <p class="muted small">Top-ups are a plain UPDATE on the wallet; the trigger writes the CREDIT audit row.</p>
+    </aside>
+  </div>
+
+  <section class="card mt">
+    <div class="row head"><h2 style="margin:0">My bookings</h2><div class="spacer"></div>
+      <label>Show<select id="status-filter">
+        <option value="">All</option><option>CONFIRMED</option><option value="CHECKED_IN">CHECKED IN</option><option>COMPLETED</option>
+      </select></label></div>
+    <p class="muted small">Move a booking forward: CONFIRMED → CHECKED IN → COMPLETED. A guest can only have <b>one</b> CHECKED IN stay
+      at a time - this is enforced by the partial unique index <code>idx_active_stay</code>. Try checking in two bookings to see it.</p>
+    <div id="my-bookings"></div>
+    <div class="pager" id="pager"></div>
+  </section>
+</main>
+<script src="js/common.js"></script>
+<script src="js/book.js"></script>
+</body>
+</html>
