@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StaySpot · Browse</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main>
+  <h1>Browse</h1>
+  <p class="subtitle">Guests, properties and bookings. Results are paged on the server, so only 20 rows are loaded at a time.</p>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="guests">Guests</button>
+    <button class="tab" data-tab="properties">Properties</button>
+    <button class="tab" data-tab="bookings">Bookings</button>
+  </div>
+
+  <div class="card">
+    <!-- filters change per tab -->
+    <div class="row" id="filters"></div>
+    <div id="results" class="mt"></div>
+    <div class="pager" id="pager"></div>
+  </div>
+</main>
+<script src="js/common.js"></script>
+<script src="js/browse.js"></script>
+</body>
+</html>
