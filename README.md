@@ -1,247 +1,178 @@
-# StaySpot – Assignment 1 (Project 3)
+# StaySpot – Assignment 2: Front End (Team <TEAM_NO>)
 
-**GitHub:** https://github.com/HemanthReddyGaddam/2026201018_a1  
-**Commit hash (update after final push):** `320d487573b14adcf28a31067b2d32ec8518059f`
+A web front end for the inherited **StaySpot (Project 3)** backend: guests book holiday stays and pay from a wallet,
+staff watch revenue, search demand and reviews. PostgreSQL holds the transactional data; MongoDB holds reviews,
+the flexible amenities catalog and geo search pings.
 
-PostgreSQL + MongoDB persistence for vacation rentals (StaySpot). This README covers setup, schema assumptions, and performance proof for Workflows 2–4 (`EXPLAIN ANALYZE` / `explain("executionStats")`).
-
----
-
-## Assumptions
-
-1. **Project:** StaySpot (Project 3) – guests, properties, bookings, wallet audit logs.
-2. **`guests.email` is nullable.** Guests may book without providing an email. `UNIQUE` still applies when email is present; PostgreSQL allows multiple `NULL` emails.
-3. **Extra guest fields:** `phone_number` (required, unique) and unique `name` for contact / demo convenience beyond the minimal assignment columns.
-4. **Booking dates:** `check_in` / `check_out` added so `total_cost = nights * properties.base_price` (`nights = check_out - check_in`). Constraint: `check_out > check_in`.
-5. **Status values:** `CONFIRMED`, `CHECKED_IN`, `COMPLETED` (underscore form of the brief’s “CHECKED IN”).
-6. **Partial unique index:** at most one `CHECKED_IN` booking per guest (`idx_active_stay`).
-7. **Wallet audit:** trigger fires `AFTER UPDATE OF wallet_balance` on `guests` and inserts into `wallet_audit_logs`.
-8. **Materialized view:** `mv_property_analytics` aggregates completed stays (nights + gross revenue); refreshed via `refresh_property_analytics()` using `REFRESH MATERIALIZED VIEW CONCURRENTLY`.
-9. **Workflow 1:** `sp_execute_booking` runs under `REPEATABLE READ`, deducts wallet, inserts booking, then `COMMIT`. Any `RAISE EXCEPTION` before `COMMIT` aborts the transaction (clean rollback).
-10. **Scale targets (Postgres):** ≥50k bookings and ≥100k wallet audit rows.
-11. **Mongo collections:** `PropertyAmenities` (flexible amenities), `PropertyReviews` (ratings + tags), `SearchSessions` (GeoJSON search pings).
-12. **Mongo geospatial + TTL:** `2dsphere` on `SearchSessions.location`; TTL on `created_at` with `expireAfterSeconds: 7200` (2 hours). Session count drops after TTL — re-seed before demo if you need ≥500k docs.
-13. **Workflow 3:** `$geoNear` finds SearchSessions within 5 km, then grid-clusters into hotspots.
-14. **Workflow 4:** `$facet` computes rating distribution, top tags (`$unwind`), and overall average rating.
+- **GitHub repository:** https://github.com/<OWNER>/<REPO>
+- **Final commit hash:** `<FINAL_COMMIT_HASH>`
+- **Demo video (≤ 5 min):** <VIDEO_LINK>
+- Inherited from: https://github.com/HemanthReddyGaddam/2026201018_a1 (forked, history kept).
+  The original Part A README is preserved at [`docs/part_a_readme.md`](docs/part_a_readme.md).
 
 ---
 
-## Setup (PostgreSQL)
+## Screens
+
+| Screen | Workflow | What it shows |
+|---|---|---|
+| **Browse** (`index.html`) | – | Guests / Properties / Bookings with server-side paging, search, filters and a detail panel |
+| **Book a stay** (`book.html`) | Workflow 1 | Booking form → `sp_execute_booking`; balance before/after; new `wallet_audit_logs` row; friendly errors; wallet top-up; status buttons CONFIRMED → CHECKED IN → COMPLETED (partial unique index demo) |
+| **Wallet audit** (`audit.html`) | Audit | `wallet_audit_logs` for one guest, date filter, running balance, totals |
+| **Analytics** (`analytics.html`) | Workflow 2 + MV | 7-day moving average chart, `DENSE_RANK()` table, materialized view numbers with "last refreshed" + Refresh button |
+| **Search map** (`map.html`) | Workflow 3 | `$geoNear` 5 km hotspots on a map, list sorted by distance, auto-refresh every 5 s, simulate new pings |
+| **Reviews** (`reviews.html`) | Workflow 4 | `$facet` rating distribution, top tags, average; one `PropertyAmenities` document shown readably; latest reviews |
+
+The **Switch** button in the navbar chooses which guest you are acting as (no real login). The dot next to it is
+green when both databases are reachable and red otherwise.
+
+| Book a stay – success | Second check-in blocked by `idx_active_stay` |
+|---|---|
+| ![](docs/screenshots/book_success.png) | ![](docs/screenshots/checkin_blocked.png) |
+| **Analytics** | **Wallet audit** |
+| ![](docs/screenshots/analytics.png) | ![](docs/screenshots/audit.png) |
+
+---
+
+## Setup (Windows, macOS or Linux)
+
+Prerequisites: **PostgreSQL** (16+), **MongoDB** (7+) running as a service, **mongosh**, **Python 3.10+**, **Node.js 20+**.
+
+### 1. PostgreSQL – schema, seed data, A2 additions
 
 ```bash
-# Create DB (once)
-createdb -U postgres stayspot_db   # or: psql -U postgres -c "CREATE DATABASE stayspot_db;"
+psql -U postgres -c "CREATE DATABASE stayspot_db;"
 
-# Apply SQL in order
 psql -U postgres -d stayspot_db -f sql/01_schema_ddl.sql
 psql -U postgres -d stayspot_db -f sql/02_indexes.sql
 psql -U postgres -d stayspot_db -f sql/03_triggers_and_audit.sql
 psql -U postgres -d stayspot_db -f sql/04_stored_procedures.sql
 psql -U postgres -d stayspot_db -f sql/05_materialized_views.sql
 
-# Python deps + seed
-pip install -r requirements.txt
-# Edit data_generation/postgres_seeder.py DB_CONFIG if needed, then:
-python3 data_generation/postgres_seeder.py
-python3.13 data_generation/postgres_seeder.py
-
-# Refresh MV after seed
-psql -U postgres -d stayspot_db -c "SELECT refresh_property_analytics();"
-
-# Workflow 2 analytics
-psql -U postgres -d stayspot_db -f sql/06_window_analytics.sql
+pip install -r data_generation/requirements.txt
 ```
 
-Example booking call:
-
-```sql
-CALL sp_execute_booking(
-  1,              -- guest_id
-  1,              -- property_id
-  CURRENT_DATE,
-  CURRENT_DATE + 2,
-  (SELECT ROUND(2 * base_price, 2) FROM properties WHERE id = 1)
-);
-```
-
----
-
-## Performance proof (PostgreSQL)
-
-Raw plans: [`performance/postgres_explain_analyzes.txt`](performance/postgres_explain_analyzes.txt)
-
-### Dataset scale (after seed)
-
-| Table | Rows |
-|-------|------|
-| guests | ~10,000 |
-| properties | ~2,000 |
-| bookings | **50,000** |
-| wallet_audit_logs | **100,000** |
-
-### Workflow 2 (`sql/06_window_analytics.sql`)
-
-- Aggregates all bookings into daily revenue per property, then 7-day moving average + `DENSE_RANK`.
-- On ~50k bookings: **Hash Join** properties↔bookings, **WindowAgg** for moving average / rank.
-- **Execution Time ≈ 119 ms** (full analytics over the seeded set).
-- Note: a sequential read of `bookings` for a full-table window query is expected; selective lookups below use indexes.
-
-### Materialized view lookup
-
-```
-Index Scan using idx_mv_property_analytics_id on mv_property_analytics
-  Index Cond: (property_id = 1)
-Execution Time: ~0.01–0.17 ms
-```
-
-Proves the unique index that enables `REFRESH CONCURRENTLY` is used for point lookups.
-
-### Partial unique index (`idx_active_stay`)
-
-```
-Index Scan using idx_active_stay on bookings
-  Index Cond: (guest_id = 42)
-  (predicate: status = 'CHECKED_IN')
-Execution Time: ~0.01 ms
-```
-
-No sequential scan for active-stay checks.
-
-### Secondary index (`idx_bookings_property_status`)
-
-```
-Bitmap Index Scan on idx_bookings_property_status
-  Index Cond: (property_id = 1 AND status = 'COMPLETED')
-Execution Time: ~0.03 ms
-```
-
-Avoids filtering the full 50k-row heap for property-level completed revenue.
-
----
-
-## Setup (MongoDB)
+Set your Postgres password for the seeder, then seed (≈1 minute, re-runnable):
 
 ```bash
-# Start Mongo (Homebrew)
-brew services start mongodb-community
-
-# 1) Collections + indexes (2dsphere, TTL, review indexes)
-#    WARNING: this script drops the three StaySpot collections if they already exist.
-mongosh "mongodb://localhost:27017" mongo/01_collections_and_indexes.js
-
-# 2) Seed (≥500k SearchSessions). Requires: pip install -r requirements.txt
-python3 data_generation/mongo_seeder.py \
-  --uri "mongodb://localhost:27017" \
-  --db stayspot \
-  --sessions 500000 \
-  --reviews 12000 \
-  --properties 2000 \
-  --drop-existing
-
-# 3) Workflows
-mongosh "mongodb://localhost:27017" mongo/02_workflow3_geonear.js
-mongosh "mongodb://localhost:27017" mongo/03_workflow4_facet.js
-
-# Optional: scope Workflow 4 to one property
-mongosh "mongodb://localhost:27017" \
-  --eval 'var FILTER_PROPERTY_ID = 1' \
-  mongo/03_workflow4_facet.js
+# Windows PowerShell
+$env:PGPASSWORD="your_password"; python data_generation/postgres_seeder.py
+# macOS / Linux
+PGPASSWORD=your_password python3 data_generation/postgres_seeder.py
 ```
 
-Interactive shell (like `psql`):
+Then add the Assignment 2 objects (refresh log + analytics functions; also does the first MV refresh):
 
 ```bash
-mongosh "mongodb://localhost:27017/stayspot"
+psql -U postgres -d stayspot_db -f sql/07_a2_additions.sql
 ```
 
-```javascript
-db.SearchSessions.countDocuments({})
-db.PropertyReviews.countDocuments({})
-db.SearchSessions.getIndexes()
-db.PropertyReviews.getIndexes()
+`sql/06_window_analytics.sql` is the stand-alone Workflow 2 query (run it to see the raw output).
+
+### 2. MongoDB – collections, indexes, seed data
+
+```bash
+mongosh mongo/01_collections_and_indexes.js
+python data_generation/mongo_seeder.py --drop-existing
 ```
 
-Schema map: [`docs/mongo_schema_map.json`](docs/mongo_schema_map.json)
+> **Seed MongoDB shortly before a demo.** `SearchSessions` has a 2-hour TTL index, so seeded search pings are deleted
+> 2 hours after seeding. The map's **Simulate 20 new searches** button also adds fresh pings at any time.
+
+### 3. API + web front end
+
+```bash
+cd api
+copy .env.example .env        # macOS/Linux: cp .env.example .env
+# edit .env: set PGPASSWORD (and MONGO_URI if not the default)
+npm install
+npm start
+```
+
+Open **http://localhost:3000**. One process serves both the JSON API (`/api/...`) and the web pages.
+
+### 4. Tests
+
+With the database seeded and the server **not** required to be running:
+
+```bash
+cd api
+npm test
+```
+
+11 tests (Node's built-in test runner) run against the real seeded PostgreSQL database:
+booking success (wallet debited + DEBIT audit row), insufficient balance (friendly error, nothing changed),
+invalid dates, second check-in blocked by `idx_active_stay`, status can only move one step,
+paging capped at 100 rows, audit running balance continuity, gap-free moving average, DENSE_RANK has no gaps,
+MV refresh updates "last refreshed". Test guests are created and deleted by the tests themselves.
 
 ---
 
-## Performance proof (MongoDB)
+## Tech choices
 
-Raw / compact plans: [`performance/mongo_execution_stats.json`](performance/mongo_execution_stats.json)
+| Layer | Choice | Why |
+|---|---|---|
+| Server | **Node.js + Express** with `pg` and `mongodb` drivers | Small and well known; one process serves the API and the static pages. The route files only call the Part A procedure, functions, views and pipelines – the databases do the real work. |
+| Front end | **Plain HTML + CSS + vanilla JavaScript**, no framework, no build step | Six screens do not need React; anyone can open a file and read it. Shared look and behaviour live in one `style.css` and one `common.js`. |
+| Charts | **Chart.js** | Simple bar/line charts with tooltips. Served from `node_modules`, so no CDN/internet needed. |
+| Map | **Leaflet** + OpenStreetMap tiles | Free, no API key. |
+| Tests | **`node:test`** (built in) | No extra test framework to install. |
 
-### Dataset scale (after seed; SearchSessions shrinks via TTL)
-
-| Collection | Docs (target) | Notes |
-|------------|---------------|--------|
-| PropertyAmenities | ~2,000 | 1 doc per property |
-| PropertyReviews | ~12,000 | ratings 1–5 + tags |
-| SearchSessions | **≥500,000** after seed | TTL 2h → count falls until re-seed |
-
-### Indexes created (`mongo/01_collections_and_indexes.js`)
-
-- `SearchSessions.idx_location_2dsphere` — `{ location: "2dsphere" }`
-- `SearchSessions.idx_created_at_ttl` — `{ created_at: 1 }`, `expireAfterSeconds: 7200`
-- `PropertyReviews.idx_property_rating` — `{ property_id: 1, rating: -1 }`
-- `PropertyReviews.idx_tags` — `{ tags: 1 }`
-
-### Workflow 3 — `$geoNear` hotspots (`mongo/02_workflow3_geonear.js`)
+### Code organisation
 
 ```
-winningPlan.inputStage.stage      = GEO_NEAR_2DSPHERE
-winningPlan.inputStage.indexName  = idx_location_2dsphere
-executionTimeMillis               ≈ 14 ms
+api/
+  server.js          Express app; auto-mounts every file in routes/ under /api; serves ../web
+  db.js              shared PostgreSQL pool + MongoDB client (settings from .env)
+  helpers.js         paging, errors, id validation
+  routes/            one file per screen: guests, properties, bookings, analytics, hotspots, reviews
+  tests/             node:test files
+web/
+  *.html             one page per screen
+  css/style.css      the design system (colours, cards, tables, buttons, badges, states)
+  js/common.js       navbar, guest switcher, api(), loading/empty/error states, table, pager, panel, toast
+  js/<page>.js       logic for each page
+sql/ mongo/ data_generation/   from Part A + our fixes
+docs/                handover note, API list, design (users, wireframes, style guide), screenshots
 ```
 
-Proves geospatial query uses the **2dsphere index**, not `COLLSCAN`.
+---
 
-### Workflow 4 — `$facet` review analytics (`mongo/03_workflow4_facet.js`)
+## Assumptions
 
-With `$match: { property_id: 1 }` before `$facet`:
+1. **Currency** is shown as ₹ (the seed data has no currency; the search hotspots are Indian cities).
+2. **"Active stay" = `CHECKED_IN`**, as in the inherited partial unique index. Bookings are created as `CONFIRMED`, so the
+   index is demonstrated on the status screen (checking in a second booking), not in the booking form.
+3. **Status flow** is strictly CONFIRMED → CHECKED_IN → COMPLETED; there is no cancellation in the schema.
+4. **Running balance** = `balance_after` stored by the trigger; "balance before" is derived from it and the amount.
+5. **Moving average** is over 7 *calendar* days (days without bookings count as ₹0) – see handover note fix #1.
+   Revenue is attributed to the day the booking was created (`created_at`), as in Part A.
+6. **Ranking** ranks all properties by their 7-day moving average on the chosen date (top 20 shown).
+7. **Map origin** is one of the seeded cities or any point clicked on the map; results cover the last 2 hours
+   (the TTL window), radius fixed at 5 km.
+8. **No authentication** – the guest switcher is for demos only.
+9. **Reviews/amenities** use `property_id` 1–2000, matching PostgreSQL (seeder fix).
 
-```
-executionStages ... stage = IXSCAN
-indexName                 = idx_property_rating
-totalDocsExamined         = totalKeysExamined   (selective; not full collection scan)
-executionTimeMillis       ≈ 5 ms
-```
+## Changes to the inherited code
 
-Proves the property filter hits **`idx_property_rating`**, then `$facet` builds rating distribution, top tags, and overall average in one pass.
+Summarised here, explained in [`docs/handover_note.md`](docs/handover_note.md). All are marked `[A2 fix]` in the code.
 
-### How to regenerate Mongo explains (interactive)
+- `sql/06_window_analytics.sql` – true 7-calendar-day moving average (gap-free calendar via `generate_series`).
+- `sql/07_a2_additions.sql` – **new**: `mv_refresh_log`, `refresh_property_analytics()` logs refresh time,
+  `fn_property_moving_avg()`, `fn_property_rank()`.
+- `data_generation/postgres_seeder.py` – env-based connection, re-runnable (`TRUNCATE`), consistent wallet audit history.
+- `data_generation/mongo_seeder.py` – default `--properties` 5000 → 2000 to match PostgreSQL.
+- README rewritten; original kept as `docs/part_a_readme.md`; removed committed `.DS_Store`; added `.gitignore`, `.gitattributes`.
 
-```javascript
-// Workflow 3 proof
-db.SearchSessions.explain("executionStats").aggregate([
-  { $geoNear: {
-      near: { type: "Point", coordinates: [77.5946, 12.9716] },
-      distanceField: "distance_meters",
-      maxDistance: 5000,
-      spherical: true,
-      query: { created_at: { $gte: new Date(Date.now() - 120*60*1000) } }
-  }},
-  { $limit: 20 }
-])
+API endpoint list: [`docs/api_endpoints.md`](docs/api_endpoints.md) · Design: [`docs/design/`](docs/design/)
 
-// Workflow 4 proof
-db.PropertyReviews.explain("executionStats").aggregate([
-  { $match: { property_id: 1 } },
-  { $facet: {
-      ratingDistribution: [
-        { $bucket: { groupBy: "$rating", boundaries: [1,2,3,4,5,6],
-                     default: "other", output: { count: { $sum: 1 } } } }
-      ],
-      topTags: [
-        { $unwind: "$tags" },
-        { $group: { _id: "$tags", frequency: { $sum: 1 } } },
-        { $sort: { frequency: -1 } },
-        { $limit: 10 }
-      ],
-      overallStats: [
-        { $group: { _id: null, averageRating: { $avg: "$rating" },
-                    totalReviews: { $sum: 1 } } }
-      ]
-  }}
-])
-```
+---
 
-Look for `GEO_NEAR_2DSPHERE` / `IXSCAN` and **no** `COLLSCAN` on the heavy stages.
+## Contribution
+
+| Member | Roll no. | Design | Code |
+|---|---|---|---|
+| Shinjan Laha | 2026201005 | Overall look, style tokens, Browse/Book/Audit layouts | Inherited-repo fixes (SQL, seeders), API core (server, db, guests, properties, bookings), shared front end (`common.js`, `style.css`), Browse, Book a stay, Wallet audit, handover note, API doc, README |
+| <MEMBER_2> | <ROLL_2> | User descriptions (`docs/design/users.md`) | Analytics screen + `routes/analytics.js`, tests |
+| <MEMBER_3> | <ROLL_3> | Wireframes (`docs/design/wireframes.md`) | Search map screen + `routes/hotspots.js` |
+| <MEMBER_4> | <ROLL_4> | Style guide (`docs/design/style_guide.md`) | Reviews & amenities screen + `routes/reviews.js` |
