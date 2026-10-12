@@ -1,10 +1,10 @@
-# StaySpot – Assignment 2: Front End (Team <TEAM_NO>)
+# StaySpot – Assignment 2: Front End (Team 16)
 
 A web front end for the inherited **StaySpot (Project 3)** backend: guests book holiday stays and pay from a wallet,
 staff watch revenue, search demand and reviews. PostgreSQL holds the transactional data; MongoDB holds reviews,
 the flexible amenities catalog and geo search pings.
 
-- **GitHub repository:** https://github.com/<OWNER>/<REPO>
+- **GitHub repository:** https://github.com/ShinjanLaha2026201005/Group_16_a1b
 - **Final commit hash:** `<FINAL_COMMIT_HASH>`
 - **Demo video (≤ 5 min):** <VIDEO_LINK>
 - Inherited from: https://github.com/HemanthReddyGaddam/2026201018_a1 (forked, history kept).
