@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StaySpot · Wallet audit</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main>
+  <h1>Wallet audit trail</h1>
+  <p class="subtitle">Read-only view of <code>wallet_audit_logs</code>. Every row is written by the database trigger when a wallet balance changes.</p>
+
+  <div class="card">
+    <form class="row" id="filter-form">
+      <label>Guest id<input id="guest" type="number" min="1" style="width:120px"></label>
+      <label>From<input id="from" type="date"></label>
+      <label>To<input id="to" type="date"></label>
+      <button class="btn" type="submit">Show</button>
+      <button class="btn btn-secondary" type="button" id="clear">All dates</button>
+    </form>
+  </div>
+
+  <div class="grid grid-4 mt" id="summary"></div>
+
+  <div class="card mt">
+    <h2 id="title">Entries</h2>
+    <p class="muted small">Oldest first. "Running balance" is the wallet value right after each change.</p>
+    <div id="rows"></div>
+  </div>
+</main>
+<script src="js/common.js"></script>
+<script src="js/audit.js"></script>
+</body>
+</html>
