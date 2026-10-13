@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StaySpot · Analytics</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main>
+  <h1>Revenue analytics</h1>
+  <p class="subtitle">Headline numbers come from the materialized view <code>mv_property_analytics</code>;
+    the chart and ranking use window functions (7-day moving average + <code>DENSE_RANK()</code>).</p>
+
+  <!-- 1. Materialized view summary -->
+  <section class="card">
+    <div class="row head">
+      <h2 style="margin:0">Completed stays (materialized view)</h2>
+      <div class="spacer"></div>
+      <span class="muted small" id="refreshed">Last refreshed: –</span>
+      <button class="btn btn-secondary btn-sm" id="refresh">Refresh view</button>
+    </div>
+    <div id="summary" class="grid grid-4 mt"></div>
+  </section>
+
+  <!-- 2. Moving average chart -->
+  <section class="card mt">
+    <h2 id="chart-title">7-day moving average revenue</h2>
+    <div class="row">
+      <label>Top properties<select id="top-select"></select></label>
+      <label>or property id<input id="prop-id" type="number" min="1" style="width:110px"></label>
+      <button class="btn btn-secondary" id="prop-go">Show</button>
+    </div>
+    <div class="legend mt">
+      <span><i style="background:var(--series-1);height:10px"></i>Daily revenue</span>
+      <span><i style="background:var(--series-2)"></i>7-day moving average</span>
+    </div>
+    <div id="chart-state"></div>
+    <div class="chart-box"><canvas id="chart"></canvas></div>
+  </section>
+
+  <!-- 3. DENSE_RANK table -->
+  <section class="card mt">
+    <div class="row head">
+      <h2 style="margin:0">Property ranking by 7-day moving average</h2>
+      <div class="spacer"></div>
+      <label>Date<input id="rank-date" type="date"></label>
+    </div>
+    <p class="muted small">Ties share a rank and the next rank is not skipped (DENSE_RANK).</p>
+    <div id="ranking"></div>
+  </section>
+</main>
+<script src="/vendor/chart.js/chart.umd.js"></script>
+<script src="js/common.js"></script>
+<script src="js/analytics.js"></script>
+</body>
+</html>
