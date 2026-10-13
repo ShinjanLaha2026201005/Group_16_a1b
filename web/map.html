@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StaySpot · Search map</title>
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main>
+  <h1>Search hotspots</h1>
+  <p class="subtitle">Where guests are searching right now. A <code>$geoNear</code> pipeline finds searches within <b>5 km</b>
+    of the origin (last 2 hours) and groups them into ~1 km hotspots. Click the map to move the origin.</p>
+
+  <div class="card">
+    <div class="row">
+      <label>City<select id="preset"></select></label>
+      <label>Last<select id="minutes"><option value="120">2 hours</option><option value="30">30 minutes</option><option value="10">10 minutes</option></select></label>
+      <button class="btn btn-secondary" id="simulate">Simulate 20 new searches</button>
+      <label class="small" style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="auto" checked> Auto-refresh every 5 s</label>
+      <div class="spacer"></div>
+      <span class="muted small" id="updated"></span>
+    </div>
+  </div>
+
+  <div class="grid grid-sidebar mt">
+    <div class="card"><div id="map"></div><div id="map-state"></div></div>
+    <div class="card">
+      <h2 id="count">Hotspots</h2>
+      <p class="muted small">Sorted by distance from the origin.</p>
+      <ul class="list" id="hotspots"></ul>
+    </div>
+  </div>
+</main>
+<script src="/vendor/leaflet/leaflet.js"></script>
+<script src="js/common.js"></script>
+<script src="js/map.js"></script>
+</body>
+</html>
