@@ -48,6 +48,7 @@ HOTSPOT_CENTERS = [
     (77.2090, 28.6139),   # Delhi
     (80.2707, 13.0827),   # Chennai
     (88.3639, 22.5726),   # Kolkata
+    (78.4867, 17.3850),   # Hyderabad
 ]
 
 HOUSE_RULE_POOL = [
