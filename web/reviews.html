@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StaySpot · Reviews</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main>
+  <h1>Reviews &amp; amenities</h1>
+  <p class="subtitle">Review charts come from one <code>$facet</code> pipeline on <code>PropertyReviews</code>
+    (rating distribution, top tags and average in a single pass). Amenities are the flexible <code>PropertyAmenities</code> documents.</p>
+
+  <div class="card">
+    <form class="row" id="filter-form">
+      <label>Property id<input id="property" type="number" min="1" placeholder="All properties" style="width:150px"></label>
+      <button class="btn" type="submit">Show</button>
+      <button class="btn btn-secondary" type="button" id="all">All properties</button>
+    </form>
+  </div>
+
+  <div class="grid grid-3 mt" id="stats"></div>
+
+  <div class="grid grid-2 mt">
+    <section class="card">
+      <h2>Rating distribution</h2>
+      <div id="dist-state"></div>
+      <div class="chart-box"><canvas id="dist-chart"></canvas></div>
+    </section>
+    <section class="card">
+      <h2>Top tags</h2>
+      <div id="tags-state"></div>
+      <div class="chart-box"><canvas id="tags-chart"></canvas></div>
+    </section>
+  </div>
+
+  <div class="grid grid-2 mt">
+    <section class="card">
+      <h2 id="amen-title">Amenities</h2>
+      <div id="amenities"></div>
+    </section>
+    <section class="card">
+      <h2>Latest reviews</h2>
+      <div id="reviews"></div>
+      <div class="pager" id="pager"></div>
+    </section>
+  </div>
+</main>
+<script src="/vendor/chart.js/chart.umd.js"></script>
+<script src="js/common.js"></script>
+<script src="js/reviews.js"></script>
+</body>
+</html>
