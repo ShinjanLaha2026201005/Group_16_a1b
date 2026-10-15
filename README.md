@@ -26,12 +26,6 @@ the flexible amenities catalog and geo search pings.
 The **Switch** button in the navbar chooses which guest you are acting as (no real login). The dot next to it is
 green when both databases are reachable and red otherwise.
 
-| Book a stay – success | Second check-in blocked by `idx_active_stay` |
-|---|---|
-| ![](docs/screenshots/book_success.png) | ![](docs/screenshots/checkin_blocked.png) |
-| **Analytics** | **Wallet audit** |
-| ![](docs/screenshots/analytics.png) | ![](docs/screenshots/audit.png) |
-
 ---
 
 ## Setup (Windows, macOS or Linux)
@@ -170,9 +164,9 @@ API endpoint list: [`docs/api_endpoints.md`](docs/api_endpoints.md) · Design: [
 
 ## Contribution
 
-| Member | Roll no. | Design | Code |
-|---|---|---|---|
-| Shinjan Laha | 2026201005 | Overall look, style tokens, Browse/Book/Audit layouts | Inherited-repo fixes (SQL, seeders), API core (server, db, guests, properties, bookings), shared front end (`common.js`, `style.css`), Browse, Book a stay, Wallet audit, handover note, API doc, README |
-| <MEMBER_2> | <ROLL_2> | User descriptions (`docs/design/users.md`) | Analytics screen + `routes/analytics.js`, tests |
-| <MEMBER_3> | <ROLL_3> | Wireframes (`docs/design/wireframes.md`) | Search map screen + `routes/hotspots.js` |
-| <MEMBER_4> | <ROLL_4> | Style guide (`docs/design/style_guide.md`) | Reviews & amenities screen + `routes/reviews.js` |
+| Member | Roll no. | Branch | Design | Code |
+|---|---|---|---|---|
+| Shinjan Laha | 2026201005 | CSE | Handover note (`docs/handover_note.md`), API list (`docs/api_endpoints.md`) | Repo fixes (SQL, seeders), API core, shared front end, Browse + Book + Audit screens |
+| Gagandeep Singh Narula | 2026202008 | CSIS | User descriptions (`docs/design/users.md`) | Analytics screen + `routes/analytics.js`, tests |
+| Nilotpal Choudhury | 2026202005 | CSIS | Wireframes (`docs/design/wireframes.md`) | Search map screen + `routes/hotspots.js` |
+| Viroja Shrutkumar Sanjaybhai | 2026204011 | PDM | Style guide (`docs/design/style_guide.md`) | Reviews & amenities screen + `routes/reviews.js` |
