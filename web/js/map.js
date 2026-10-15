@@ -26,7 +26,7 @@ async function refresh() {
     // one circle per hotspot; bigger + darker = more searches
     d.hotspots.forEach((h) => {
       L.circleMarker([h.lat, h.lng], {
-        radius: 6 + 18 * (h.search_count / max),
+        radius: 3 + 8 * (h.search_count / max),
         color: '#ffffff', weight: 2,
         fillColor: getComputedStyle(document.documentElement).getPropertyValue('--series-2').trim(),
         fillOpacity: 0.35 + 0.5 * (h.search_count / max),
