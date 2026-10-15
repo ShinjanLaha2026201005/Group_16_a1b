@@ -6,7 +6,7 @@ the flexible amenities catalog and geo search pings.
 
 - **GitHub repository:** https://github.com/ShinjanLaha2026201005/Group_16_a1b
 - **Final commit hash:** `<FINAL_COMMIT_HASH>`
-- **Demo video (≤ 5 min):** <VIDEO_LINK>
+- **Demo video:** https://drive.google.com/file/d/1eyvonVX9-boQKIR3qMVgtNuWPJUG80yT/view?usp=drive_link
 - Inherited from: https://github.com/HemanthReddyGaddam/2026201018_a1 (forked, history kept).
   The original Part A README is preserved at [`docs/part_a_readme.md`](docs/part_a_readme.md).
 
