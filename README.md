@@ -26,6 +26,15 @@ the flexible amenities catalog and geo search pings.
 The **Switch** button in the navbar chooses which guest you are acting as (no real login). The dot next to it is
 green when both databases are reachable and red otherwise.
 
+### Screenshots
+
+| | |
+|---|---|
+| **Browse** – guests, 20 rows per page<br>![Browse](docs/screenshots/browse.png) | **Booking succeeded** – balance before/after and the new DEBIT audit row<br>![Booking succeeded](docs/screenshots/book_success.png) |
+| **Booking failed** – not enough money, wallet untouched<br>![Booking failed](docs/screenshots/book_failed.png) | **Second check-in blocked** – partial unique index `idx_active_stay`<br>![Check-in blocked](docs/screenshots/checkin_blocked.png) |
+| **Wallet audit** – totals and running balance<br>![Wallet audit](docs/screenshots/audit.png) | **Analytics** – materialized view numbers and 7-day moving average<br>![Analytics](docs/screenshots/analytics.png) |
+| **Search map** – `$geoNear` hotspots within 5 km of Hyderabad<br>![Search map](docs/screenshots/map.png) | **Reviews** – `$facet` average, rating distribution, top tags<br>![Reviews](docs/screenshots/reviews.png) |
+
 ---
 
 ## Setup (Windows, macOS or Linux)
